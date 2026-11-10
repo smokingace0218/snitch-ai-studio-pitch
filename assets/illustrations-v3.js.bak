@@ -1,0 +1,155 @@
+/* Visual narration: pictorial flows with connector lines that draw in as the voice reaches them.
+   Every piece is inline SVG (viewBox 1200×600). Elements carry class="cue" data-cue="fr:N" so the
+   narration engine reveals frame N; in Explore everything is visible. */
+window.ILL = (function () {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fr = (n, cls) => `class="cue ${cls || ''}" data-cue="fr:${n}"`;
+  /* ---- icon symbols (one stroke weight, currentColor) ---- */
+  const ICONS = {
+    phone: '<rect x="-22" y="-40" width="44" height="80" rx="8"/><line x1="-8" y1="32" x2="8" y2="32"/>',
+    folder: '<path d="M-36 -22h26l8 8h38v44h-72z"/>',
+    film: '<rect x="-34" y="-24" width="68" height="48" rx="4"/><line x1="-34" y1="-12" x2="34" y2="-12"/><line x1="-34" y1="12" x2="34" y2="12"/><line x1="-20" y1="-24" x2="-20" y2="-12"/><line x1="0" y1="-24" x2="0" y2="-12"/><line x1="20" y1="-24" x2="20" y2="-12"/><line x1="-20" y1="12" x2="-20" y2="24"/><line x1="0" y1="12" x2="0" y2="24"/><line x1="20" y1="12" x2="20" y2="24"/>',
+    person: '<circle cx="0" cy="-18" r="13"/><path d="M-26 30c0-16 12-26 26-26s26 10 26 26"/>',
+    check: '<circle cx="0" cy="0" r="30"/><path d="M-13 1l9 9 18-20"/>',
+    chat: '<path d="M-34 -24h68v38h-40l-16 14v-14h-12z"/>',
+    store: '<path d="M-36 -8l6-22h60l6 22"/><path d="M-36 -8q9 10 18 0q9 10 18 0q9 10 18 0q9 10 18 0"/><rect x="-30" y="0" width="60" height="32"/><rect x="-8" y="10" width="16" height="22"/>',
+    camera: '<rect x="-34" y="-18" width="68" height="44" rx="6"/><circle cx="0" cy="4" r="12"/><rect x="-14" y="-28" width="28" height="10" rx="2"/>',
+    chart: '<rect x="-34" y="-26" width="68" height="52" rx="4"/><line x1="-20" y1="16" x2="-20" y2="0"/><line x1="-6" y1="16" x2="-6" y2="-12"/><line x1="8" y1="16" x2="8" y2="-4"/><line x1="22" y1="16" x2="22" y2="-18"/>',
+    play: '<circle cx="0" cy="0" r="30"/><path d="M-9 -15l24 15-24 15z"/>',
+    calendar: '<rect x="-32" y="-26" width="64" height="54" rx="5"/><line x1="-32" y1="-10" x2="32" y2="-10"/><line x1="-16" y1="-34" x2="-16" y2="-20"/><line x1="16" y1="-34" x2="16" y2="-20"/>',
+    tag: '<path d="M-30 -20h30l28 28-22 22-28-28v-22z"/><circle cx="-18" cy="-8" r="4"/>',
+    search: '<circle cx="-6" cy="-6" r="20"/><line x1="9" y1="9" x2="28" y2="28"/>',
+    sheet: '<rect x="-34" y="-26" width="68" height="52" rx="4"/><rect x="-26" y="-18" width="14" height="14"/><rect x="-7" y="-18" width="14" height="14"/><rect x="12" y="-18" width="14" height="14"/><rect x="-26" y="2" width="14" height="14"/><rect x="-7" y="2" width="14" height="14"/><rect x="12" y="2" width="14" height="14"/>',
+    shirt: '<path d="M-14 -30l14 6 14-6 20 10-8 14-8-4v40h-36v-40l-8 4-8-14z"/>',
+    hand: '<path d="M-6 30v-34a6 6 0 0 1 12 0v18m0-24a6 6 0 0 1 12 0v24m0-18a6 6 0 0 1 12 0v30c0 14-10 24-24 24s-24-10-24-24v-14a6 6 0 0 1 12 0v8"/>',
+    cloud: '<path d="M-26 20a14 14 0 0 1 2-28a20 20 0 0 1 38-6a16 16 0 0 1 10 34z"/>',
+    bell: '<path d="M-20 14v-16a20 20 0 0 1 40 0v16l8 10h-56z"/><path d="M-8 30a8 8 0 0 0 16 0"/>',
+    mic: '<rect x="-10" y="-34" width="20" height="40" rx="10"/><path d="M-22 -4a22 22 0 0 0 44 0"/><line x1="0" y1="18" x2="0" y2="32"/>',
+    eye: '<path d="M-34 0q34-34 68 0q-34 34-68 0z"/><circle cx="0" cy="0" r="10"/>',
+    star: '<path d="M0 -30l9 19 21 3-15 15 4 21-19-10-19 10 4-21-15-15 21-3z"/>'
+  };
+  const icon = (name, x, y, s) => `<g transform="translate(${x} ${y}) scale(${s || 1})" class="ic">${ICONS[name] || ''}</g>`;
+  /* a pictorial node: icon in a soft disc + label beneath */
+  const node = (f, x, y, name, label, sub, opts) => { const o = opts || {}; return `<g ${fr(f, 'nd ' + (o.cls || ''))}><circle cx="${x}" cy="${y}" r="${o.r || 54}" class="disc"/>${icon(name, x, y, o.s || 1)}<text x="${x}" y="${y + (o.r || 54) + 26}" text-anchor="middle" class="lbl">${esc(label)}</text>${sub ? `<text x="${x}" y="${y + (o.r || 54) + 46}" text-anchor="middle" class="sub">${esc(sub)}</text>` : ''}</g>`; };
+  /* a connector that draws itself: straight or with a bend */
+  const link = (f, x1, y1, x2, y2, label, via) => { const d = via ? `M${x1} ${y1} Q${via[0]} ${via[1]} ${x2} ${y2}` : `M${x1} ${y1} L${x2} ${y2}`; const mx = via ? via[0] : (x1 + x2) / 2, my = via ? via[1] : (y1 + y2) / 2; return `<g ${fr(f, 'ln')}><path d="${d}" class="wire" marker-end="url(#ah)"/>${label ? `<text x="${mx}" y="${my - 12}" text-anchor="middle" class="wl">${esc(label)}</text>` : ''}</g>`; };
+  const defs = '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5 0 10z" fill="currentColor"/></marker></defs>';
+  const svg = (inner, label) => `<svg class="ill" viewBox="0 0 1200 600" role="img" aria-label="${esc(label)}">${defs}${inner}</svg>`;
+  /* small pictorial insets */
+  const phone = (x, y, w, h, inner, f) => `<g ${f != null ? fr(f) : ''}><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="22" class="ph"/><rect x="${x + w / 2 - 30}" y="${y + 10}" width="60" height="6" rx="3" class="fill-ink"/>${inner}</g>`;
+  const card = (f, x, y, w, h, title, sub, cls) => `<g ${fr(f, 'cd ' + (cls || ''))}><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" class="cdr"/>${title ? `<text x="${x + 12}" y="${y + 22}" class="ct">${esc(title)}</text>` : ''}${sub ? `<text x="${x + 12}" y="${y + 40}" class="cs">${esc(sub)}</text>` : ''}</g>`;
+  const bubble = (f, x, y, w, text, me) => `<g ${fr(f)}><rect x="${x}" y="${y}" width="${w}" height="34" rx="14" class="${me ? 'bb me' : 'bb'}"/><text x="${x + 14}" y="${y + 22}" class="${me ? 'bt me' : 'bt'}">${esc(text)}</text></g>`;
+  const tile = (f, x, y, w, h, href, label) => `<g ${fr(f)}><image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" clip-path="inset(0 round 8px)"/><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" class="tilef"/>${label ? `<text x="${x + w / 2}" y="${y + h + 20}" text-anchor="middle" class="sub">${esc(label)}</text>` : ''}</g>`;
+  const big = (f, x, y, text, cls) => `<text ${fr(f, 'big ' + (cls || ''))} x="${x}" y="${y}">${esc(text)}</text>`;
+
+  const K = {};
+  K.title = () => svg(`${big(0, 80, 230, 'An AI studio', 'xl')}${big(0, 80, 330, "inside the marketing team", 'xl')}
+      <g ${fr(1)}>${[1,2,3,4,5,6,7,8].map((n, i) => `<circle cx="${110 + i * 70}" cy="420" r="24" class="disc"/><text x="${110 + i * 70}" y="428" text-anchor="middle" class="ct">${n}</text>`).join('')}</g>
+      <g ${fr(2)}>${['Built & tested', 'Prototype', 'Needs access', 'Experimental'].map((t, i) => `<rect x="${80 + i * 230}" y="490" width="210" height="40" rx="20" class="pill p${i}"/><text x="${185 + i * 230}" y="516" text-anchor="middle" class="pt p${i}">${t}</text>`).join('')}</g>`, 'Title: an AI studio inside the marketing team');
+
+  K.eight = s => svg(s.items.map((it, i) => { const col = i % 4, row = Math.floor(i / 4), x = 150 + col * 300, y = 160 + row * 270; const ic = ['phone', 'chat', 'film', 'check', 'chart', 'play', 'store', 'camera'][i]; return node(i, x, y, ic, it.n + ' · ' + it.name, it.line.length > 42 ? it.line.slice(0, 40) + '…' : it.line, { r: 56 }); }).join(''), 'The eight ideas as icons');
+
+  K['phone-feed'] = () => svg(`${node(0, 140, 300, 'person', 'A person for every post', 'today')}
+      ${link(1, 200, 300, 330, 300, 'instead')}
+      ${phone(340, 90, 250, 430, [0,1,2,3,4,5,6].map(i => card(1, 360, 130 + i * 52, 210, 44, ['Mon · Reel', 'Tue · Story', 'Wed · Reel', 'Thu · Carousel', 'Fri · Reel', 'Sat · Reel', 'Sun · Reel'][i], 'cut · caption · music · time')).join(''), 1)}
+      <text ${fr(1)} x="465" y="560" text-anchor="middle" class="lbl">Seven proposals, every Monday</text>
+      ${link(2, 600, 300, 720, 300, 'one tap')}
+      ${node(2, 790, 300, 'hand', 'Approve · edit · swap', 'nothing posts without it', { r: 60 })}
+      <g ${fr(2)}><rect x="690" y="420" width="200" height="34" rx="17" class="pill p0"/><text x="790" y="443" text-anchor="middle" class="pt p0">facts from the feed only</text></g>
+      ${link(3, 850, 300, 980, 300, 'on schedule')}
+      ${node(3, 1060, 300, 'calendar', 'Posted', 'stock checked again')}
+      ${link(4, 1060, 360, 465, 540, 'results come back', [800, 620])}`, 'Flow: a person today, seven proposals on a phone, one-tap approval, scheduled posting, results feeding back');
+
+  K.chat = () => svg(`${node(0, 130, 300, 'chat', '"How do I style this?"', 'asked every day')}
+      ${link(1, 190, 300, 320, 300, 'style me')}
+      ${phone(330, 70, 300, 470, `${bubble(1, 350, 110, 190, 'style me for a wedding')}${bubble(2, 410, 160, 200, 'Day or evening? Budget?', true)}${bubble(2, 350, 210, 170, 'evening, under ₹3,000')}
+        ${card(3, 410, 262, 200, 46, 'Look 1 · overshirt + trousers', '₹2,798 · in stock', 'look')}${card(3, 410, 316, 200, 46, 'Look 2 · knit polo + chinos', '₹2,497 · in stock', 'look')}
+        ${bubble(4, 350, 376, 120, 'more casual?')}${card(4, 410, 420, 200, 46, 'Look 1b · varsity sweater', '₹2,598 · in stock', 'look')}
+        ${bubble(5, 410, 480, 200, 'Buy · Save · Talk to a human', true)}`, 1)}
+      ${link(3, 640, 300, 760, 300, 'from live stock')}
+      ${node(3, 830, 300, 'tag', 'Only what is in stock', 'nothing invented')}
+      ${link(5, 890, 300, 1010, 300, 'one tap')}
+      ${node(5, 1080, 300, 'person', 'A human takes over', 'the stylist goes quiet')}`, 'Flow: a question, a short chat on the phone with looks from live stock, a human one tap away');
+
+  const P = 'assets/img/';
+  K.producer = () => svg(`${node(0, 120, 180, 'folder', 'The shoot folder', '762 clips')}
+      ${link(1, 180, 180, 290, 180, 'watch every clip')}
+      ${node(1, 360, 180, 'eye', 'Who · what · ready · sound', 'tagged', { r: 58 })}
+      ${link(2, 420, 180, 520, 180, 'three cuts')}
+      ${tile(2, 530, 90, 100, 178, P + 'poster-v1-crew-v1.jpg', 'cut A')}${tile(2, 645, 90, 100, 178, P + 'poster-v1-crew-v9.jpg', 'cut B')}${tile(2, 760, 90, 100, 178, P + 'poster-video-1-v040-audited.jpg', 'cut C')}
+      ${bubble(3, 540, 300, 320, '"start shot two where the ball leaves his hand"')}
+      ${link(3, 870, 180, 980, 180, 'approve')}
+      ${node(3, 1050, 180, 'hand', 'Approve', 'notes in plain English')}
+      ${link(4, 1050, 240, 1050, 390, 'into the library')}
+      ${node(4, 1050, 450, 'search', 'The library', 'words · product · setup')}
+      ${link(5, 990, 450, 880, 450)}
+      <g ${fr(5)}>${['Reel', 'Short', 'Story', 'Store', 'Ad ×12'].map((t, i) => `<rect x="${560 + i * 64}" y="415" width="56" height="70" rx="6" class="cdr"/><text x="${588 + i * 64}" y="456" text-anchor="middle" class="cs">${t}</text>`).join('')}<text x="720" y="520" text-anchor="middle" class="lbl">versions and ad variants from one approval</text></g>`, 'Flow: shoot folder, clips watched and tagged, three cuts, a plain-English note, approval, the library, versions and ad variants');
+
+  K.check = () => svg(`${node(0, 120, 300, 'film', 'A finished video', 'goes out on instinct today')}
+      ${link(1, 180, 300, 290, 300, 'upload')}
+      <g ${fr(1)}><rect x="300" y="150" width="200" height="300" rx="10" class="cdr"/><text x="400" y="185" text-anchor="middle" class="ct">Craft check</text>${['frames', 'sound', 'safe zones', 'captions', 'sources'].map((t, i) => `<text x="330" y="${225 + i * 36}" class="cs">${t}</text>`).join('')}</g>
+      <g ${fr(2)}>${[0,1,2,3].map(i => `<g transform="translate(455 ${218 + i * 36}) scale(.45)" class="ic ok">${ICONS.check}</g>`).join('')}<g transform="translate(455 362) scale(.45)" class="ic warn">${ICONS.bell}</g><text x="400" y="430" text-anchor="middle" class="sub">pass · or a warning that names the shot</text></g>
+      ${link(3, 500, 300, 610, 300, 'then')}
+      <g ${fr(3)}><rect x="620" y="150" width="220" height="300" rx="10" class="cdr"/><text x="730" y="185" text-anchor="middle" class="ct">Attention read</text><polyline points="640,400 680,300 720,330 760,250 800,290 830,230" class="wire thin"/><text x="730" y="430" text-anchor="middle" class="cs">opening · pacing · payoff</text></g>
+      ${link(4, 840, 300, 950, 300, 'trial reel')}
+      ${node(4, 1020, 230, 'play', 'To non-followers first', 'read the numbers', { r: 52 })}
+      <g ${fr(5)}>${['Share', 'Re-cut', 'Drop'].map((t, i) => `<rect x="${920 + i * 70}" y="360" width="64" height="34" rx="17" class="pill p${i === 0 ? 0 : 1}"/><text x="${952 + i * 70}" y="383" text-anchor="middle" class="pt p${i === 0 ? 0 : 1}">${t}</text>`).join('')}<text x="1020" y="440" text-anchor="middle" class="sub">lift, never virality</text></g>`, 'Flow: a finished video, the craft check with ticks and one warning, the attention read, a trial reel, share re-cut or drop');
+
+  K.dashboard = () => svg(`${['Main page', 'Hotline', 'Store handles'].map((t, i) => node(0, 130, 150 + i * 150, i === 2 ? 'store' : 'phone', t, i === 2 ? '130+' : '', { r: 44 })).join('')}
+      ${[0,1,2].map(i => link(1, 175, 150 + i * 150, 330, 300, i === 1 ? 'read-only' : '', [250, 150 + i * 150])).join('')}
+      ${node(2, 400, 300, 'cloud', 'One place', 'every day', { r: 56 })}
+      ${link(3, 460, 300, 580, 300)}
+      <g ${fr(3)}><rect x="590" y="130" width="420" height="340" rx="12" class="cdr"/><text x="620" y="165" text-anchor="middle" class="ct" style="text-anchor:start">Every handle · every format · over time</text>
+        ${[60, 110, 80, 140, 120, 170, 150, 200].map((h, i) => `<rect x="${620 + i * 46}" y="${400 - h}" width="30" height="${h}" rx="3" class="${i % 2 ? 'bar b' : 'bar a'}"/>`).join('')}<text x="800" y="440" text-anchor="middle" class="cs">top posts · store managers see their own</text></g>
+      ${link(4, 1010, 300, 1100, 300)}
+      ${node(4, 1130, 300, 'calendar', 'Monday summary', 'in plain English', { r: 46 })}`, 'Flow: three kinds of handles feed one place, one dashboard, a Monday summary');
+
+  K.shorts = () => svg(`${tile(0, 80, 150, 130, 230, P + 'poster-hero-corner-v5.jpg', 'a finished film')}
+      ${link(1, 215, 265, 330, 265, 'becomes')}
+      ${[0,1,2].map(i => tile(1, 345 + i * 80, 180, 66, 118, [P + 'poster-v1-crew-v9.jpg', P + 'poster-bts-filmmaker-v1.jpg', P + 'poster-v1-crew-v1.jpg'][i])).join('')}<text ${fr(1)} x="465" y="330" text-anchor="middle" class="lbl">Shorts</text>
+      <g ${fr(2)}>${['title', 'chapters', 'thumbnail'].map((t, i) => `<rect x="${360 + i * 72}" y="350" width="66" height="30" rx="15" class="pill p1"/><text x="${393 + i * 72}" y="370" text-anchor="middle" class="pt p1">${t}</text>`).join('')}</g>
+      ${link(3, 600, 265, 700, 265, 'private')}
+      ${node(3, 770, 265, 'hand', 'You approve', 'nothing public without it')}
+      ${link(4, 830, 265, 940, 265, 'public, on schedule')}
+      ${node(4, 1010, 265, 'play', 'YouTube', '', { r: 52 })}
+      ${link(5, 1010, 330, 770, 470, 'numbers back', [900, 520])}
+      ${node(5, 700, 470, 'chart', 'Dashboard', 'and styling Shorts from DM questions', { r: 44 })}`, 'Flow: a film becomes Shorts with title chapters and thumbnail, private upload, approval, public, numbers back');
+
+  K.stores = () => svg(`${tile(0, 70, 170, 120, 213, P + 'poster-hero-corner-v5.jpg', 'the campaign film')}<text ${fr(2)} x="130" y="425" text-anchor="middle" class="wl">adapt, never re-cut</text>
+      ${[0,1,2].map(i => node(1, 330, 150 + i * 150, 'store', 'Store ' + (i + 1), 'sends its facade clip', { r: 40 })).join('')}
+      ${[0,1,2].map(i => link(2, 380, 150 + i * 150, 520, 300, '', [450, 150 + i * 150])).join('')}
+      ${link(2, 195, 276, 520, 300, '')}
+      <g ${fr(2)}><rect x="530" y="200" width="300" height="200" rx="12" class="cdr"/><rect x="545" y="215" width="60" height="170" rx="6" class="slot"/><rect x="755" y="215" width="60" height="170" rx="6" class="slot"/><rect x="612" y="215" width="136" height="170" rx="6" class="keep"/><text x="575" y="300" text-anchor="middle" class="cs">facade</text><text x="785" y="300" text-anchor="middle" class="cs">facade</text><text x="680" y="290" text-anchor="middle" class="ct">the film</text><text x="680" y="312" text-anchor="middle" class="cs">cut · timing · music</text><text x="680" y="330" text-anchor="middle" class="cs">never change</text></g>
+      <g ${fr(3)}>${['local lockup', 'call to action', 'language'].map((t, i) => `<rect x="${540 + i * 100}" y="420" width="92" height="30" rx="15" class="pill p1"/><text x="${586 + i * 100}" y="440" text-anchor="middle" class="pt p1">${t}</text>`).join('')}</g>
+      ${link(4, 830, 300, 930, 300, 'approve once')}
+      ${node(4, 990, 300, 'hand', 'Spot-check ten', '')}
+      ${link(5, 1040, 300, 1130, 300, 'staggered')}
+      ${[0,1,2].map(i => `<g ${fr(5)}><circle cx="1150" cy="${230 + i * 70}" r="22" class="disc"/>${icon('store', 1150, 230 + i * 70, .45)}</g>`).join('')}`, 'Flow: the campaign film and each store facade, the film untouched in the middle with facade slots at both ends, approve once, staggered posting');
+
+  K.studio = () => svg(`${node(0, 110, 300, 'camera', 'Shoots are slow', 'and costly')}
+      ${link(1, 165, 300, 270, 300, 'instead')}
+      ${phone(280, 170, 130, 260, `<g transform="translate(345 300) scale(1.3)" class="ic">${ICONS.shirt}</g>`, 1)}<text ${fr(1)} x="345" y="465" text-anchor="middle" class="lbl">phone photos</text><text ${fr(1)} x="345" y="485" text-anchor="middle" class="sub">a few angles</text>
+      ${link(2, 410, 300, 500, 300)}
+      <g ${fr(2)}>${['street', 'editorial', 'traditional', 'old money'].map((t, i) => `<rect x="510" y="${215 + i * 44}" width="120" height="34" rx="17" class="pill ${i === 1 ? 'p0' : 'p1'}"/><text x="570" y="${237 + i * 44}" text-anchor="middle" class="pt ${i === 1 ? 'p0' : 'p1'}">${t}</text>`).join('')}<text x="570" y="420" text-anchor="middle" class="lbl">a theme</text></g>
+      ${link(3, 630, 300, 720, 300)}
+      <g ${fr(3)}>${[0,1,2].map(i => `<circle cx="${760 + i * 56}" cy="270" r="24" class="disc ${i === 1 ? 'sel' : ''}"/>${icon('person', 760 + i * 56, 270, .5)}`).join('')}<text x="816" y="330" text-anchor="middle" class="lbl">SNITCH's own models</text><text x="816" y="350" text-anchor="middle" class="sub">the real garment stays real</text></g>
+      ${link(4, 900, 300, 980, 300, 'contact sheet')}
+      <g ${fr(4)}><rect x="990" y="190" width="170" height="220" rx="10" class="cdr"/>${[0,1,2,3,4,5].map(i => `<rect x="${1005 + (i % 3) * 50}" y="${205 + Math.floor(i / 3) * 70}" width="42" height="60" rx="4" class="${i === 4 ? 'slot' : 'keep'}"/>`).join('')}<text x="1075" y="372" text-anchor="middle" class="cs">approve · reject · redo</text><text x="1075" y="392" text-anchor="middle" class="cs">accessories from the catalogue</text></g>
+      ${link(5, 1075, 410, 1075, 480)}
+      ${node(5, 1075, 530, 'search', 'The library', 'cropped for every channel', { r: 36, s: .7 })}`, 'Flow: phone photos of the product, a theme, one of SNITCH\'s own models, a contact sheet to judge, into the library');
+
+  K.films = s => svg(`${s.films.map((f, i) => `<g ${fr(1)}><foreignObject x="${150 + i * 320}" y="30" width="200" height="356"><video xmlns="http://www.w3.org/1999/xhtml" data-video="${f.id}" src="${f.src}" poster="${f.poster}" preload="metadata" muted playsinline loop style="width:200px;height:356px;object-fit:contain;background:#000;border-radius:12px"></video></foreignObject><text x="${250 + i * 320}" y="410" text-anchor="middle" class="lbl">${esc(f.label)}</text></g>`).join('')}
+      ${big(0, 600, 448, 'Six films already cut from the Winter shoot', 'md ctr')}
+      <g ${fr(2)}><rect x="20" y="462" width="1160" height="40" rx="8" class="cdr"/>${['42 tests passed', 'cut planned', 'note applied', 'film finished', '29 checks · 2 warnings'].map((t, i) => `<text x="${130 + i * 232}" y="488" text-anchor="middle" class="ct">${t}</text>`).join('')}</g>
+      <g ${fr(3)}><rect x="20" y="510" width="1160" height="40" rx="8" class="cdr warnbox"/><text x="600" y="536" text-anchor="middle" class="ct">Two bugs found and named: a remove-this-shot note did nothing; a timing note was misread. First on the fix list.</text></g>
+      <g ${fr(4)}><rect x="20" y="558" width="1160" height="40" rx="8" class="cdr"/><text x="600" y="584" text-anchor="middle" class="ct">A prototype for me, not a product for a team. Every idea is defined from scratch with SNITCH after this pitch.</text></g>`, 'The prototype: three films side by side and the test run');
+
+  K.ask = () => svg(`${big(0, 80, 120, 'Not an IT project.', 'lg')}${big(0, 80, 175, 'A studio inside the marketing team.', 'lg')}
+      ${node(1, 200, 360, 'person', 'I design, build, judge and run', '', { r: 64 })}
+      ${link(2, 270, 360, 420, 360, 'SNITCH grants')}
+      ${[['phone', 'Hotline admin + Meta app'], ['chart', 'Read-only insights'], ['play', 'A Google account'], ['cloud', 'The workstation decision']].map(([ic, t], i) => node(2, 520 + i * 170, 360, ic, t, '', { r: 44, s: .8 })).join('')}
+      ${node(3, 1120, 360, 'eye', 'One security review', 'before the stylist meets the public', { r: 44, s: .8 })}
+      ${big(4, 80, 560, 'Eight ideas I can stand behind. Thank you.', 'md')}`, 'The ask: my role, four grants from SNITCH, one security review');
+
+  return { render: (s) => (K[s.kind] ? K[s.kind](s) : ''), icons: ICONS };
+})();

@@ -1,0 +1,25 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:11.460
+This is the logged audit from the fifth of November, on footage that was already analysed. These are recorded results, not a claim that the whole studio is built.
+
+2
+00:00:11.460 --> 00:00:23.615
+The fast test subset passed forty-two tests in six point six three seconds. The doctor health check reported ten out of ten okay. Slow end-to-end and InVideo tests were not run.
+
+3
+00:00:23.615 --> 00:00:39.670
+The reference plan became version forty. A brief-driven variation became forty-one. Hard cuts applied in forty-two, but remove shot five did nothing. A timing note in forty-three reordered the shot instead of shifting its start.
+
+4
+00:00:39.670 --> 00:00:59.945
+The preview was five hundred and forty by nine hundred and sixty. The final was ten eighty by nineteen twenty, twenty-five frames a second, with H two sixty-four picture and stereo AAC sound. Both were fourteen point zero eight seconds. The final render took twenty-seven seconds.
+
+5
+00:00:59.945 --> 00:01:13.370
+Twenty-seven of twenty-nine quality checks passed. The two warnings were a subject touching the frame edge and rhythm variety below the human median. The evidence frames are timecoded here.
+
+6
+00:01:13.370 --> 00:01:29.045
+The source was not a git repository. Before team use: add version control, fix removal, add a real trim operation and show the shot-table diff after every note. Originals stay untouched; human review remains essential.

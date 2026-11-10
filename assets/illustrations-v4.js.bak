@@ -1,0 +1,157 @@
+/* Visual narration, v4: one layout system for every scene.
+   Frame 1200×640. Header (number · title · one line). A row of stage cards on a fixed grid, joined by
+   connector lines with labelled pills; insets drawn inside the cards at one size. Elements carry
+   class="cue" data-cue="fr:N" so the narration reveals stage N (and its incoming line). */
+window.ILL = (function () {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fr = (n, cls) => `class="cue ${cls || ''}" data-cue="fr:${n}"`;
+  const P = 'assets/img/';
+  /* ---- icon set: 48px box, one stroke ---- */
+  const I = {
+    person: '<circle cx="0" cy="-9" r="9"/><path d="M-17 19c0-10 8-17 17-17s17 7 17 17"/>',
+    phone: '<rect x="-12" y="-22" width="24" height="44" rx="5"/><line x1="-4" y1="16" x2="4" y2="16"/>',
+    folder: '<path d="M-21 -13h15l5 5h22v24h-42z"/>',
+    eye: '<path d="M-21 0q21-20 42 0q-21 20-42 0z"/><circle cx="0" cy="0" r="6"/>',
+    check: '<circle cx="0" cy="0" r="19"/><path d="M-8 1l6 6 11-13"/>',
+    calendar: '<rect x="-19" y="-15" width="38" height="33" rx="4"/><line x1="-19" y1="-5" x2="19" y2="-5"/><line x1="-10" y1="-21" x2="-10" y2="-12"/><line x1="10" y1="-21" x2="10" y2="-12"/>',
+    chat: '<path d="M-20 -15h40v24h-24l-9 8v-8h-7z"/>',
+    tag: '<path d="M-18 -12h18l17 17-13 13-17-17v-13z"/><circle cx="-11" cy="-5" r="2.5"/>',
+    search: '<circle cx="-4" cy="-4" r="12"/><line x1="5" y1="5" x2="17" y2="17"/>',
+    film: '<rect x="-20" y="-14" width="40" height="28" rx="3"/><line x1="-20" y1="-6" x2="20" y2="-6"/><line x1="-20" y1="6" x2="20" y2="6"/><line x1="-12" y1="-14" x2="-12" y2="-6"/><line x1="0" y1="-14" x2="0" y2="-6"/><line x1="12" y1="-14" x2="12" y2="-6"/><line x1="-12" y1="6" x2="-12" y2="14"/><line x1="0" y1="6" x2="0" y2="14"/><line x1="12" y1="6" x2="12" y2="14"/>',
+    play: '<circle cx="0" cy="0" r="19"/><path d="M-6 -9l15 9-15 9z"/>',
+    store: '<path d="M-21 -5l4-13h34l4 13"/><path d="M-21 -5q5 6 10.5 0q5 6 10.5 0q5 6 10.5 0q5 6 10.5 0"/><rect x="-17" y="0" width="34" height="19"/><rect x="-4" y="6" width="9" height="13"/>',
+    camera: '<rect x="-20" y="-10" width="40" height="26" rx="4"/><circle cx="0" cy="3" r="7"/><rect x="-8" y="-16" width="16" height="6" rx="1"/>',
+    chart: '<rect x="-20" y="-16" width="40" height="32" rx="3"/><line x1="-12" y1="9" x2="-12" y2="0"/><line x1="-4" y1="9" x2="-4" y2="-7"/><line x1="4" y1="9" x2="4" y2="-2"/><line x1="12" y1="9" x2="12" y2="-10"/>',
+    cloud: '<path d="M-15 12a9 9 0 0 1 1-18a12 12 0 0 1 23-4a10 10 0 0 1 6 22z"/>',
+    shirt: '<path d="M-8 -17l8 4 8-4 12 6-5 8-5-2v23h-20v-23l-5 2-5-8z"/>',
+    sheet: '<rect x="-20" y="-16" width="40" height="32" rx="3"/><rect x="-15" y="-11" width="8" height="9"/><rect x="-4" y="-11" width="8" height="9"/><rect x="7" y="-11" width="8" height="9"/><rect x="-15" y="2" width="8" height="9"/><rect x="-4" y="2" width="8" height="9"/><rect x="7" y="2" width="8" height="9"/>',
+    bell: '<path d="M-12 8v-10a12 12 0 0 1 24 0v10l5 6h-34z"/><path d="M-5 18a5 5 0 0 0 10 0"/>',
+    star: '<path d="M0 -18l5 11 12 2-9 8 2 12-10-6-10 6 2-12-9-8 12-2z"/>',
+    shield: '<path d="M0 -19l16 6v10c0 10-7 17-16 21c-9-4-16-11-16-21v-10z"/><path d="M-6 1l4 4 8-9"/>',
+    rocket: '<path d="M0 -20c8 6 10 16 8 26h-16c-2-10 0-20 8-26z"/><circle cx="0" cy="-4" r="3"/><path d="M-8 6l-6 8h6M8 6l6 8h-6"/>'
+  };
+  const norm = m => m.replace(/<(path|circle|line|rect|polyline)\b/g, '<$1 pathLength="1"');
+  const ic = (n, x, y, s) => `<g transform="translate(${x} ${y}) scale(${s || 1})" class="ic">${norm(I[n] || '')}</g>`;
+  const defs = `<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5 0 10z" fill="currentColor"/></marker><filter id="sh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity=".08"/></filter><pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" class="dot"/></pattern></defs>`;
+  const svg = (inner, label) => `<svg class="ill" viewBox="0 0 1200 640" role="img" aria-label="${esc(label)}">${defs}<rect width="1200" height="640" fill="url(#dots)"/>${inner}</svg>`;
+  const header = (num, title, line) => `<g class="hd">${num ? `<circle cx="72" cy="66" r="26" class="numd"/><text x="72" y="75" text-anchor="middle" class="numt">${num}</text>` : ''}<text x="${num ? 116 : 60}" y="62" class="ttl">${title.split(' ').map((w, i) => `<tspan class="w" style="animation-delay:${80 + i * 60}ms">${esc(w)} </tspan>`).join('')}</text>${line ? `<text x="${num ? 116 : 60}" y="92" class="one">${esc(line)}</text>` : ''}</g>`;
+  const pill = (x, y, text, cls) => { const w = Math.max(60, text.length * 7.4 + 24); return `<g class="pillg ${cls || ''}"><rect x="${x - w / 2}" y="${y - 13}" width="${w}" height="26" rx="13" class="pill"/><text x="${x}" y="${y + 5}" text-anchor="middle" class="pt">${esc(text)}</text></g>`; };
+
+  /* ---- the stage row ---- */
+  const CARD_W = 176, CARD_H = 250, ROW_Y = 180;
+  function row(stages, opts) {
+    const o = opts || {}; const n = stages.length; const gap = Math.min(96, (1120 - n * CARD_W) / Math.max(1, n - 1)); const W = n * CARD_W + (n - 1) * gap; const x0 = (1200 - W) / 2;
+    const xs = stages.map((_, i) => x0 + i * (CARD_W + gap));
+    let out = '';
+    stages.forEach((st, i) => {
+      const x = xs[i], y = ROW_Y, f = st.f == null ? i : st.f;
+      const inner = st.inset ? st.inset(x + 14, y + 34, CARD_W - 28, 132) : `<circle cx="${x + CARD_W / 2}" cy="${y + 78}" r="40" class="icd ${st.accent ? 'acc' : ''}"/>${ic(st.icon, x + CARD_W / 2, y + 78, 1)}`;
+      const lines = wrap(st.label, 18);
+      out += `<g ${fr(f, 'st')}><rect x="${x}" y="${y}" width="${CARD_W}" height="${CARD_H}" rx="18" class="card ${st.accent ? 'acc' : ''}" filter="url(#sh)"/><text x="${x + 18}" y="${y + 28}" class="stepn">${i + 1}</text>${inner}${lines.map((t, k) => `<text x="${x + CARD_W / 2}" y="${y + 190 + k * 20}" text-anchor="middle" class="lbl">${esc(t)}</text>`).join('')}${st.sub ? `<text x="${x + CARD_W / 2}" y="${y + 190 + lines.length * 20 + 2}" text-anchor="middle" class="sub">${esc(st.sub)}</text>` : ''}</g>`;
+      if (i < n - 1) { const x1 = x + CARD_W + 6, x2 = xs[i + 1] - 6, ly = y + 78; const nf = stages[i + 1].f == null ? i + 1 : stages[i + 1].f; out += `<g ${fr(nf, 'ln')}><circle cx="${x1}" cy="${ly}" r="3" class="dotp"/><line x1="${x1}" y1="${ly}" x2="${x2}" y2="${ly}" class="wire" marker-end="url(#ah)"/>${st.to ? wrap(st.to, 10).map((t, k) => `<text x="${(x1 + x2) / 2}" y="${ly - 30 + k * 14}" text-anchor="middle" class="wl">${esc(t)}</text>`).join('') : ''}</g>`; }
+    });
+    if (o.loop) { const a = xs[o.loop.from] + CARD_W / 2, b = xs[o.loop.to] + CARD_W / 2, y = ROW_Y + CARD_H + 8; out += `<g ${fr(o.loop.f, 'ln')}><path d="M${a} ${y} L${a} ${y + 60} L${b} ${y + 60} L${b} ${y + 8}" class="wire" marker-end="url(#ah)"/>${pill((a + b) / 2, y + 60, o.loop.label, 'on-wire')}</g>`; }
+    return out;
+  }
+  const wrap = (t, n) => { const out = []; let line = ''; (t || '').split(' ').forEach(wd => { if ((line + ' ' + wd).trim().length > n) { out.push(line.trim()); line = wd; } else line += ' ' + wd; }); if (line.trim()) out.push(line.trim()); return out.slice(0, 2); };
+
+  /* ---- insets (drawn inside a card area x,y,w,h) ---- */
+  const inPhone = (items) => (x, y, w, h) => `<rect x="${x + (w - 92) / 2}" y="${y}" width="92" height="${h}" rx="14" class="ph"/>${items.slice(0, 7).map((t, i) => `<rect x="${x + (w - 92) / 2 + 8}" y="${y + 12 + i * 18}" width="76" height="13" rx="3" class="mini ${i < 2 ? 'a' : ''}"/>`).join('')}`;
+  const inChat = () => (x, y, w, h) => { const px = x + (w - 110) / 2; return `<rect x="${px}" y="${y}" width="110" height="${h}" rx="14" class="ph"/><rect x="${px + 8}" y="${y + 12}" width="58" height="14" rx="7" class="bb"/><rect x="${px + 40}" y="${y + 32}" width="62" height="14" rx="7" class="bb me"/><rect x="${px + 8}" y="${y + 52}" width="48" height="14" rx="7" class="bb"/><rect x="${px + 32}" y="${y + 72}" width="70" height="22" rx="5" class="mini a"/><rect x="${px + 32}" y="${y + 98}" width="70" height="22" rx="5" class="mini a"/><rect x="${px + 8}" y="${y + 124}" width="44" height="14" rx="7" class="bb"/>`; };
+  const inTiles = (imgs) => (x, y, w, h) => imgs.map((src, i) => `<image href="${src}" x="${x + i * (w / imgs.length)}" y="${y}" width="${w / imgs.length - 6}" height="${h}" preserveAspectRatio="xMidYMid slice" class="tile"/>`).join('');
+  const inList = (rows) => (x, y, w, h) => rows.map((r, i) => `<rect x="${x}" y="${y + i * 28}" width="${w}" height="22" rx="5" class="mini"/><text x="${x + 10}" y="${y + 15 + i * 28}" class="cs">${esc(r[0])}</text><g transform="translate(${x + w - 16} ${y + 11 + i * 28}) scale(.5)" class="ic ${r[1] === 'warn' ? 'warn' : 'ok'}">${r[1] === 'warn' ? I.bell : I.check}</g>`).join('');
+  const inCurve = () => (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" class="mini"/><polyline points="${x + 10},${y + h - 20} ${x + 40},${y + 40} ${x + 70},${y + 70} ${x + 100},${y + 30} ${x + 130},${y + 55} ${x + w - 10},${y + 25}" class="curve"/><text x="${x + w / 2}" y="${y + h - 6}" text-anchor="middle" class="cs">attention over time</text>`;
+  const inBars = () => (x, y, w, h) => [50, 90, 65, 120, 100, 135].map((b, i) => `<rect x="${x + 8 + i * 24}" y="${y + h - b}" width="16" height="${b}" rx="3" class="${i % 2 ? 'bar b' : 'bar a'}"/>`).join('');
+  const inSlots = () => (x, y, w, h) => `<rect x="${x}" y="${y + 20}" width="${w}" height="${h - 40}" rx="8" class="mini"/><rect x="${x + 6}" y="${y + 26}" width="30" height="${h - 52}" rx="4" class="slot"/><rect x="${x + w - 36}" y="${y + 26}" width="30" height="${h - 52}" rx="4" class="slot"/><rect x="${x + 42}" y="${y + 26}" width="${w - 84}" height="${h - 52}" rx="4" class="keep"/><text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle" class="cs">the film</text>`;
+  const inPills = (ts) => (x, y, w, h) => ts.map((t, i) => `<rect x="${x + 10}" y="${y + 6 + i * 34}" width="${w - 20}" height="26" rx="13" class="pill ${i === 1 ? 'solid' : ''}"/><text x="${x + w / 2}" y="${y + 23 + i * 34}" text-anchor="middle" class="pt ${i === 1 ? 'solid' : ''}">${esc(t)}</text>`).join('');
+  const inModels = () => (x, y, w, h) => [0, 1, 2].map(i => `<circle cx="${x + w / 2 + (i - 1) * 46}" cy="${y + 50}" r="20" class="icd ${i === 1 ? 'acc' : ''}"/>${ic('person', x + w / 2 + (i - 1) * 46, y + 50, .7)}`).join('') + `<text x="${x + w / 2}" y="${y + 110}" text-anchor="middle" class="cs">SNITCH's own models</text>`;
+  const inSheet = () => (x, y, w, h) => [0, 1, 2, 3, 4, 5].map(i => `<rect x="${x + 8 + (i % 3) * 48}" y="${y + 8 + Math.floor(i / 3) * 66}" width="40" height="58" rx="4" class="${i === 4 ? 'slot' : 'keep'}"/>`).join('');
+  const inStores = () => (x, y, w, h) => [0, 1, 2, 3, 4, 5].map(i => `<circle cx="${x + 30 + (i % 3) * 50}" cy="${y + 40 + Math.floor(i / 3) * 70}" r="20" class="icd"/>${ic('store', x + 30 + (i % 3) * 50, y + 40 + Math.floor(i / 3) * 70, .6)}`).join('');
+  const inShorts = () => (x, y, w, h) => [P + 'poster-v1-crew-v9.jpg', P + 'poster-bts-filmmaker-v1.jpg', P + 'poster-v1-crew-v1.jpg'].map((s, i) => `<image href="${s}" x="${x + i * 52}" y="${y + 10}" width="46" height="82" preserveAspectRatio="xMidYMid slice" class="tile"/>`).join('') + `<g transform="translate(${x + w / 2} ${y + 120}) scale(.6)" class="ic">${I.play}</g>`;
+  const inLibrary = () => (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="24" rx="12" class="mini"/><text x="${x + 12}" y="${y + 16}" class="cs">search · product · setup</text>` + [0, 1, 2, 3, 4, 5].map(i => `<rect x="${x + (i % 3) * 52}" y="${y + 34 + Math.floor(i / 3) * 56}" width="46" height="48" rx="5" class="mini ${i % 2 ? '' : 'a'}"/>`).join('');
+  const inVariants = () => (x, y, w, h) => ['Reel', 'Short', 'Story', 'Store', 'Ad ×12', 'Ad ×12'].map((t, i) => `<rect x="${x + (i % 3) * 52}" y="${y + 6 + Math.floor(i / 3) * 68}" width="46" height="60" rx="5" class="mini"/><text x="${x + 23 + (i % 3) * 52}" y="${y + 40 + Math.floor(i / 3) * 68}" text-anchor="middle" class="cs">${t}</text>`).join('');
+  const inCard = (lines) => (x, y, w, h) => `<rect x="${x}" y="${y + 20}" width="${w}" height="${h - 40}" rx="8" class="mini"/>` + lines.map((t, i) => `<text x="${x + w / 2}" y="${y + 50 + i * 22}" text-anchor="middle" class="cs">${esc(t)}</text>`).join('');
+
+  const K = {};
+  K.title = () => svg(`<text class="cue xl" data-cue="fr:0" x="80" y="250">An AI studio</text><text class="cue xl" data-cue="fr:0" x="80" y="340">inside the marketing team</text>
+      <g ${fr(1)}>${['phone', 'chat', 'film', 'check', 'chart', 'play', 'store', 'camera'].map((n, i) => `<circle cx="${110 + i * 92}" cy="440" r="32" class="icd"/>${ic(n, 110 + i * 92, 440, .8)}<text x="${110 + i * 92}" y="494" text-anchor="middle" class="stepn">${i + 1}</text>`).join('')}</g>
+      <g ${fr(2)}>${[['Built & tested', 'solid'], ['Prototype', ''], ['Needs access', 'dash'], ['Experimental', 'dot']].map(([t, c], i) => pill(190 + i * 230, 560, t, c)).join('')}</g>`, 'Title');
+
+  K.eight = s => svg(header(null, 'The eight ideas', 'Context and assumptions first, then how each one would work') + s.items.map((it, i) => { const col = i % 4, r = Math.floor(i / 4), x = 60 + col * 276, y = 130 + r * 236, n = ['phone', 'chat', 'film', 'check', 'chart', 'play', 'store', 'camera'][i]; const ls = wrap(it.name, 22); return `<g ${fr(i, 'st')}><rect x="${x}" y="${y}" width="252" height="212" rx="18" class="card" filter="url(#sh)"/><text x="${x + 18}" y="${y + 30}" class="stepn">${it.n}</text><circle cx="${x + 126}" cy="${y + 70}" r="32" class="icd"/>${ic(n, x + 126, y + 70, .8)}${ls.map((t, k) => `<text x="${x + 126}" y="${y + 128 + k * 20}" text-anchor="middle" class="lbl">${esc(t)}</text>`).join('')}${pill(x + 126, y + 180, ({ built: 'Built & tested', prototype: 'Prototype', access: 'Needs access', experimental: 'Experimental' })[it.badge], ({ built: 'solid', prototype: '', access: 'dash', experimental: 'dot' })[it.badge])}</g>`; }).join(''), 'The eight ideas');
+
+  const idea = (s, stages, opts) => svg(header(s.num, s.title, s.what && s.what.length > 96 ? s.what.slice(0, 94) + '…' : s.what) + row(stages, opts), s.title);
+  K['phone-feed'] = s => idea(s, [
+    { icon: 'person', label: 'A person for every post', sub: 'today', to: 'instead' },
+    { inset: inPhone(['', '', '', '', '', '', '']), label: 'Seven proposals', sub: 'every Monday, on your phone', to: 'one tap' },
+    { icon: 'check', label: 'Approve · edit · swap', sub: 'facts from the feed only', accent: true, to: 'on schedule' },
+    { icon: 'calendar', label: 'Posted', sub: 'stock checked again' }
+  ], { loop: { from: 3, to: 1, label: 'results shape the next proposals', f: 4 } });
+  K.chat = s => idea(s, [
+    { icon: 'chat', label: '"How do I style this?"', sub: 'asked every day', to: 'style me' },
+    { inset: inChat(), label: 'A short chat', sub: 'occasion · budget', f: 1 },
+    { icon: 'tag', label: 'Two or three looks', sub: 'from live stock, nothing invented', f: 3, to: 'adjust' },
+    { icon: 'star', label: 'More casual?', sub: 'it adjusts', f: 4, to: 'one tap' },
+    { icon: 'person', label: 'A human takes over', sub: 'the stylist goes quiet', accent: true, f: 5 }
+  ]);
+  K.producer = s => idea(s, [
+    { icon: 'folder', label: 'The shoot folder', sub: '762 clips', to: 'watch clips' },
+    { icon: 'eye', label: 'Who · what · ready · sound', sub: 'every clip tagged', to: 'three cuts' },
+    { inset: inTiles([P + 'poster-v1-crew-v1.jpg', P + 'poster-v1-crew-v9.jpg', P + 'poster-video-1-v040-audited.jpg']), label: 'Three cuts side by side', sub: 'notes in plain English', to: 'approve' },
+    { inset: inLibrary(), label: 'The library', sub: 'words · product · setup', f: 4, accent: true, to: 'one approval' },
+    { inset: inVariants(), label: 'Versions and ad variants', sub: 'six to twelve openings', f: 5 }
+  ]);
+  K.check = s => idea(s, [
+    { icon: 'film', label: 'A finished video', sub: 'goes out on instinct today', to: 'upload' },
+    { inset: inList([['frames', 'ok'], ['sound', 'ok'], ['safe zones', 'ok'], ['captions', 'ok'], ['shot 5 edge', 'warn']]), label: 'Craft check', sub: 'pass, or a warning that names the shot', f: 1, to: 'then' },
+    { inset: inCurve(), label: 'Attention read', sub: 'opening · pacing · payoff', f: 3, to: 'trial reel' },
+    { icon: 'play', label: 'To non-followers first', sub: 'read the numbers', f: 4, to: 'decide' },
+    { inset: inPills(['Share', 'Re-cut', 'Drop']), label: 'Your call', sub: 'lift, never virality', f: 5, accent: true }
+  ]);
+  K.dashboard = s => idea(s, [
+    { inset: inStores(), label: 'Every handle', sub: 'main · Hotline · stores', to: 'read-only' },
+    { icon: 'cloud', label: 'One place', sub: 'every day', f: 2, to: 'one screen' },
+    { inset: inBars(), label: 'Every format, over time', sub: 'top posts · own handle per store', f: 3, to: 'Monday' },
+    { icon: 'calendar', label: 'A plain-English summary', sub: 'with the posts behind each claim', f: 4, accent: true }
+  ]);
+  K.shorts = s => idea(s, [
+    { inset: inTiles([P + 'poster-hero-corner-v5.jpg']), label: 'A finished film', sub: 'already made', to: 'becomes' },
+    { inset: inShorts(), label: 'Shorts', sub: 'title · chapters · thumbnail', f: 1, to: 'private' },
+    { icon: 'check', label: 'You approve', sub: 'nothing public without it', f: 3, accent: true, to: 'on schedule' },
+    { icon: 'play', label: 'Public on YouTube', sub: 'numbers back to the dashboard', f: 4 }
+  ], { loop: { from: 3, to: 1, label: 'the stylist\'s top questions become styling Shorts', f: 5 } });
+  K.stores = s => idea(s, [
+    { inset: inTiles([P + 'poster-hero-corner-v5.jpg']), label: 'The campaign film', sub: 'provided, never re-cut', to: 'adapt' },
+    { icon: 'store', label: 'Each store\'s facade', sub: 'a short clip, graded to match', f: 1, to: 'into the slots' },
+    { inset: inSlots(), label: 'Facade at both ends', sub: 'cut · timing · music never change', f: 2, to: 'approve once' },
+    { icon: 'check', label: 'Spot-check ten', sub: 'one approval per campaign', f: 4, accent: true, to: 'staggered' },
+    { inset: inStores(), label: 'Every store handle', sub: 'never all at once', f: 5 }
+  ]);
+  K.studio = s => idea(s, [
+    { icon: 'camera', label: 'Shoots are slow', sub: 'and costly', to: 'instead' },
+    { icon: 'shirt', label: 'Phone photos', sub: 'a few angles', f: 1, to: 'pick' },
+    { inset: inPills(['street', 'editorial', 'traditional']), label: 'A theme', sub: 'and the kind of shoot', f: 2, to: 'cast' },
+    { inset: inModels(), label: 'SNITCH\'s own models', sub: 'the real garment stays real', f: 3, to: 'contact sheet' },
+    { inset: inSheet(), label: 'Approve · reject · redo', sub: 'accessories from the catalogue', f: 4, accent: true }
+  ], { loop: { from: 4, to: 0, label: 'approved frames land in the library, cropped for every channel', f: 5 } });
+  K.films = s => svg(header(null, 'The small prototype behind idea three', 'Six films already cut from the Winter shoot') + s.films.map((f, i) => `<g ${fr(1)}><foreignObject x="${150 + i * 320}" y="118" width="200" height="300"><video xmlns="http://www.w3.org/1999/xhtml" data-video="${f.id}" src="${f.src}" poster="${f.poster}" preload="metadata" muted playsinline loop style="width:200px;height:300px;object-fit:cover;border-radius:14px;background:#000"></video></foreignObject><text x="${250 + i * 320}" y="442" text-anchor="middle" class="lbl">${esc(f.label)}</text></g>`).join('') +
+    `<g ${fr(2)}>${['42 tests passed', 'a cut planned', 'a note applied', 'a film finished', '29 checks · 2 warnings'].map((t, i) => `<rect x="${60 + i * 220}" y="470" width="200" height="40" rx="20" class="mini a"/><text x="${160 + i * 220}" y="495" text-anchor="middle" class="ct">${t}</text>`).join('')}</g>
+     <g ${fr(3)}><rect x="60" y="524" width="1080" height="40" rx="20" class="mini warn"/><text x="600" y="549" text-anchor="middle" class="ct">Two bugs found and named: a remove-this-shot note did nothing; a timing note was misread. First on the fix list.</text></g>
+     <g ${fr(4)}><rect x="60" y="576" width="1080" height="40" rx="20" class="mini"/><text x="600" y="601" text-anchor="middle" class="ct">A prototype for me, not a product for a team. Every idea is defined from scratch with SNITCH after this pitch.</text></g>`, 'The prototype');
+  K.reel = s => svg(header(null, s.title, 'Six films from the Winter shoot, played one after another') + `
+      <g ${fr(0)}><foreignObject x="60" y="112" width="300" height="520"><div xmlns="http://www.w3.org/1999/xhtml" class="reel-player"><video id="reelVideo" playsinline preload="metadata" poster="${s.reel[0].poster}" style="width:292px;height:520px;object-fit:cover;border-radius:16px;background:#000"></video><div class="reel-label" id="reelLabel">${esc(s.reel[0].label)}</div></div></foreignObject>
+        ${s.reel.map((f, i) => `<g class="reel-thumb" data-reel="${i}" tabindex="0" role="button" aria-label="Play ${esc(f.label)}"><image href="${f.poster}" x="${400 + (i % 3) * 180}" y="${118 + Math.floor(i / 3) * 190}" width="160" height="150" preserveAspectRatio="xMidYMid slice" class="tile"/><rect x="${400 + (i % 3) * 180}" y="${118 + Math.floor(i / 3) * 190}" width="160" height="150" rx="8" class="thumbf"/><text x="${480 + (i % 3) * 180}" y="${288 + Math.floor(i / 3) * 190}" text-anchor="middle" class="lbl">${esc(f.label)}</text></g>`).join('')}
+        <text x="400" y="520" class="sub">Click any film to play it in full. In Auto Pitch they play one after another, then the story continues.</text></g>
+      <g ${fr(2)}><rect x="960" y="118" width="190" height="60" rx="14" class="card acc"/><text x="1055" y="144" text-anchor="middle" class="ct">Notes became rules</text><text x="1055" y="164" text-anchor="middle" class="cs">from our senior editor</text></g>
+      <g ${fr(3)}>${['42 tests passed', 'a cut planned', 'a note applied', 'a film finished', '29 checks · 2 warnings'].map((t, i) => `<rect x="960" y="${196 + i * 50}" width="190" height="40" rx="20" class="mini a"/><text x="1055" y="${221 + i * 50}" text-anchor="middle" class="ct">${t}</text>`).join('')}</g>
+      <g ${fr(4)}><rect x="960" y="452" width="190" height="76" rx="14" class="mini warn"/><text x="1055" y="478" text-anchor="middle" class="ct">Two bugs, named</text><text x="1055" y="498" text-anchor="middle" class="cs">remove-shot did nothing;</text><text x="1055" y="514" text-anchor="middle" class="cs">a timing note misread</text></g>
+      <g ${fr(5)}><rect x="960" y="544" width="190" height="60" rx="14" class="mini"/><text x="1055" y="568" text-anchor="middle" class="ct">A prototype for me</text><text x="1055" y="588" text-anchor="middle" class="cs">not a product for a team</text></g>`, 'Made with the small prototype: six films, played one after another');
+
+  K.ask = s => svg(header(null, 'My role and the ask', 'Not an IT project: a studio inside the marketing team') + row([
+    { icon: 'person', label: 'I design, build, judge and run', sub: 'with Claude Code', f: 1, to: 'grants' },
+    { inset: inCard(['Hotline admin + Meta app', 'Read-only insights', 'A Google account', 'The workstation decision']), label: 'Four things', sub: 'access, not engineering', f: 2, accent: true, to: 'plus' },
+    { icon: 'shield', label: 'One security review', sub: 'before the stylist meets the public', f: 3, to: 'then' },
+    { icon: 'rocket', label: 'Defined together', sub: 'each idea, before anything is built', f: 4 }
+  ]), 'The ask');
+
+  return { render: s => (K[s.kind] ? K[s.kind](s) : '') };
+})();
